@@ -7,29 +7,22 @@ editor: visual
 ## Libraries
 
 ```{r, message=FALSE}
-library(rvest)     # For HTML parsing
-library(stringdist)
-library(httr)      # Handles API requests
-library(jsonlite)  # Parses JSON data
-library(dplyr)     # For data manipulation
-library(purrr)     # Functional programming (map functions)
-library(tibble)    # Modern version of data frames
-library(tidyr)     # For handling nested data
-library(stringr)
-library(stopwords)
-library(widyr)  
-library(ggplot2)
-library(tidytext)
-library(quanteda)
-library(dplyr)
-library(tidytext) 
-library(widyr) 
-library(tidyr)
-library(stringr)
-library(tidyverse)
-library(tidytext)
-library(stringr)
-library(wordcloud2)
+library(rvest)     # For HTML parsing (Web Scraping)
+library(stringdist) # For computing string distances 
+library(httr)      # For handling API requests
+library(jsonlite)  # For parsing JSON data from APIs
+library(dplyr)     # For data manipulation (tidy data processing)
+library(purrr)     # For functional programming (map functions)
+library(tibble)    # For modern data frames (tibbles)
+library(tidyr)     # For handling nested data structures
+library(stringr)   # For working with strings and regular expressions
+library(stopwords) # For working with stopwords (text cleaning)
+library(widyr)     # For computing word co-occurrences (text mining)
+library(ggplot2)   # For data visualization (general plotting)
+library(tidytext)  # For text mining and tokenization
+library(quanteda)  # For advanced text analysis and NLP (natural language processing)
+library(wordcloud2) # For creating word clouds
+
 
 ```
 
@@ -48,35 +41,35 @@ get_spotify_token <- function(client_id, client_secret) {
   auth_url <- "https://accounts.spotify.com/api/token"  # Authentication endpoint
   
   response <- POST(
-    auth_url,
+    auth_url,  # Send request to Spotify's authentication API
     body = list(
-      grant_type = "client_credentials",  # Request a token using client credentials
-      client_id = client_id, 
-      client_secret = client_secret
+      grant_type = "client_credentials",  # Specify client credentials authentication
+      client_id = client_id,  # Provide Client ID
+      client_secret = client_secret  # Provide Client Secret
     ),
-    encode = "form"
+    encode = "form"  # Encode request as form data
   )
   
   # Check if authentication was successful
-  if (http_status(response)$category != "Success") {
-    stop("Failed to authenticate. Check your client ID and secret.")
+  if (http_status(response)$category != "Success") {  
+    stop("Failed to authenticate. Check your client ID and secret.")  # Stop execution if authentication fails
   }
   
   # Parse the API response and extract the access token
-  token_data <- content(response, as = "parsed", type = "application/json")
+  token_data <- content(response, as = "parsed", type = "application/json")  # Convert response to JSON
   
   # Ensure the response contains an access token
-  if (!"access_token" %in% names(token_data)) {
-    stop("Error: Could not retrieve access token.")
+  if (!"access_token" %in% names(token_data)) {  
+    stop("Error: Could not retrieve access token.")  # Stop execution if no token is returned
   }
   
   return(token_data$access_token)  # Return the token for API requests
 }
 
 # Get the access token
-access_token <- get_spotify_token(client_id, client_secret)  
+access_token <- get_spotify_token(client_id, client_secret)  # Authenticate and retrieve access token
 print(access_token)  # Print token to confirm authentication
- 
+
 ```
 
 Search for Hip-Hop/Rap Artists from Germany
@@ -1506,6 +1499,70 @@ ggplot(sentiment_analysis_nrc, aes(x = reorder(sentiment, -n), y = n, fill = sen
 ```
 The emotional analysis of the lyrics shows that negative emotions occur most frequently, followed by fear and a moderate number of positive terms. This indicates that the lyrics often have a gloomy or serious atmosphere, but still contain elements of trust and positive emotions.
 
+# German Word-correlations
+```{r}
+
+# Calculation of word correlations
+word_correlation <- german_lyrics_cleaned %>%
+  unnest_tokens(word, lyrics) %>%
+  pairwise_cor(word, track_name, sort = TRUE)
+
+# Define a list of masculine and feminine terms
+male_terms <- c("digga")
+female_terms <- c("frau'n")
+
+# Extract words that correlate with masculine terms
+male_related_words <- word_correlation %>%
+  filter(item1 %in% male_terms | item2 %in% male_terms) %>%
+  mutate(
+    male_term = ifelse(item1 %in% male_terms, item1, item2),
+    other_term = ifelse(item1 %in% male_terms, item2, item1)
+  ) %>%
+  filter(!(other_term %in% male_terms)) %>%
+  filter(correlation > 0.1) %>%
+  arrange(desc(correlation)) %>%
+  head(20)
+
+# Extract words that correlate with feminine terms
+female_related_words <- word_correlation %>%
+  filter(item1 %in% female_terms) %>%
+  mutate(
+    female_term = ifelse(item1 %in% female_terms, item1, item2),
+    other_term = ifelse(item1 %in% female_terms, item2, item1)
+  ) %>%
+  filter(!(other_term %in% female_terms)) %>%
+  filter(correlation > 0.1) %>%
+  arrange(desc(correlation)) %>%
+  head(20)
+
+# Visualization of correlations for male-related terms
+ggplot(male_related_words, 
+       aes(x = reorder(other_term, correlation), y = correlation)) +
+  geom_col(fill = "#6699FF") +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "Words Associated with Male Terms in German Lyrics",
+    x = "Associated Words", 
+    y = "Correlation Strength"
+  )
+
+# Visualization of correlations for female-related terms
+ggplot(female_related_words, 
+       aes(x = reorder(other_term, correlation), y = correlation)) +
+  geom_col(fill = "#FF6699") +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "Words Associated with Female Terms in German Lyrics",
+    x = "Associated Words", 
+    y = "Correlation Strength"
+  )
+
+
+```
+Male-Associated Words: The words most correlated with male-related terms in German lyrics include "Wien" (Vienna), "ruf" (call), "krieg" (war), "anzug" (suit), and "Mercedes." These words suggest themes related to power, status, and action, which are often associated with masculinity in lyrical contexts.
+Female-Associated Words: The words most correlated with female-related terms include "vorbild" (role model), "schlechtes" (bad), "richtig" (right), and "freund" (friend). These associations indicate a mix of both positive and negative connotations, reflecting diverse representations of women in lyrics.
 
 Word-correlations
 ```{r}
