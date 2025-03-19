@@ -1,0 +1,95 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+install.packages(c("spotifyr", "tidyverse"))
+library(spotifyr)
+library(tidyverse)
+library(scrapex)
+library(httr2)
+library(dplyr)
+
+```
+
+```{r}
+Sys.setenv(SPOTIFY_CLIENT_ID = '56ecfce3442443899ca589a65c224221')
+Sys.setenv(SPOTIFY_CLIENT_SECRET = '31f433d8f2244e469ef30152dfbb9b19')
+Sys.setenv(SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:8888/callback')  # Must match what you registered
+
+access_token <- get_spotify_access_token()
+
+```
+
+```{r}
+
+# Search for artists using various German hip hop–related keywords.
+# We append "Deutschland" to help target artists from Germany.
+hiphop_artists    <- search_spotify("hip hop deutsch Deutschland", type = "artist", limit = 50)
+rap_artists       <- search_spotify("rap deutsch Deutschland", type = "artist", limit = 50)
+trap_artists      <- search_spotify("trap deutsch Deutschland", type = "artist", limit = 50)
+drill_artists     <- search_spotify("drill deutsch Deutschland", type = "artist", limit = 50)
+conscious_artists <- search_spotify("rap bewusst deutsch Deutschland", type = "artist", limit = 50)
+gangsta_artists   <- search_spotify("gangsta rap deutsch Deutschland", type = "artist", limit = 50)
+underground_artists <- search_spotify("hip hop underground deutsch Deutschland", type = "artist", limit = 50)
+oldschool_artists <- search_spotify("old school hip hop deutsch Deutschland", type = "artist", limit = 50)
+
+# Combine all the artist results and remove duplicates based on the artist ID
+all_artist_results <- bind_rows(
+  hiphop_artists, rap_artists, trap_artists, drill_artists,
+  conscious_artists, gangsta_artists, underground_artists, oldschool_artists
+) %>% distinct(id, .keep_all = TRUE)
+
+# Sort the combined results by popularity and select the top 5 artists
+top_artists <- all_artist_results %>% arrange(desc(popularity)) %>% head(5)
+
+# View the top artists
+print(top_artists)
+
+
+```
+
+```{r}
+library(purrr)
+library(dplyr)
+library(tidyr)
+
+# For each artist in top_artists, fetch their top tracks from Germany (market = "DE"),
+# then sort the tracks by popularity and select the top 3 for each artist.
+top_artists <- top_artists %>% 
+  mutate(
+    top_tracks = map(id, ~ get_artist_top_tracks(.x, market = "DE")),
+    best_tracks = map(top_tracks, ~ .x %>% arrange(desc(popularity)) %>% slice(1:3))
+  )
+
+# Unnest the best_tracks column into a tidy tibble that shows:
+# the artist name, artist popularity, track name, and track popularity.
+tracks_tibble <- top_artists %>%
+  select(artist_name = name, artist_popularity = popularity, best_tracks) %>%
+  unnest(cols = best_tracks, names_sep = "_") %>%  # nested columns will be prefixed with "best_tracks_"
+  select(
+    artist_name,
+    artist_popularity,
+    track_name = best_tracks_name,
+    track_popularity = best_tracks_popularity
+  )
+
+# View the resulting tibble
+print(tracks_tibble)
+
+
+```
+
+```{r}
+
+```
